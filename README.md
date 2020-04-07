@@ -13,4 +13,8 @@ Interview questions and answers
         * [对称加密、非对称加密区别？]
         * [HTTP与HTTPS区别？]
         * [GET与POST的区别？]
+* 数据库
+    * redis
+        * [redis哨兵主要功能？](#redis哨兵主要功能？)
+        * [redis主从复制、哨兵和集群区别？](#redis主从复制、哨兵和集群区别？)
 <!-- GFM-TOC -->
