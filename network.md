@@ -10,6 +10,9 @@
     * [对称加密、非对称加密区别？](#对称加密、非对称加密区别？)
     * [HTTP与HTTPS区别？](#HTTP与HTTPS区别？)
     * [GET与POST的区别？](#GET与POST的区别？)
+    * [Session与Cookie的区别？](#Session与Cookie的区别？)
+    * [http请求过程？](#http请求过程？)
+    * [HTTP常见状态码？](#HTTP常见状态码？)
 <!-- GFM-TOC -->
 
 ## 传输层：TCP和UDP
