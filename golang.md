@@ -6,9 +6,95 @@ golang知识点
 
 不要以共享内存的方式来通信，相反，要通过通信来共享内存。
 
-### Channels
+## 并发模型
+
+IO多路复用、多进程、多线程
+
+* 进程是资源分配的最小单位，线程是CPU调度的最小单位
+* select, poll, epoll 都是I/O多路复用的具体的实现
+* 协程是一种用户态的轻量级线程
+
+> golang程序可以轻松支持10w级别的Goruntine，而线程数量达到1k时，内存占用就已经达到2G。
+
+epoll 可以说是I/O 多路复用最新的一个实现，epoll 修复了poll 和select绝大部分问题, 比如：
+
+* epoll 现在是线程安全的。
+* epoll 现在不仅告诉你sock组里面数据，还会告诉你具体哪个sock有数据，你不用自己去找了。
+
+## channel 
 
 当通道处于nil状态时，通道上尝试的任何发送或接收都将被阻止。 当通道处于打开状态时，可以发送和接收信号。 当通道处于关闭状态时，它将不再能够发送信号，但是仍然可以接收信号。
+
+无缓冲的通道（unbuffered channel）是指在接收前没有能力保存任何值的通道。
+有缓冲的通道（buffered channel）是一种在被接收前能存储一个或者多个数据值的通道。
+无缓冲的通道保证进行发送和接收的goroutine会在同一时间进行数据交换。
+
+有关 channel 的关闭，你需要注意以下事项:
+
+* 关闭一个未初始化(nil) 的 channel 会产生 panic。
+* 重复关闭同一个 channel 会产生 panic。
+* 向一个已关闭的 channel 中发送消息会产生 panic。
+* 从已关闭的 channel 读取消息不会产生 panic，且能读出 channel 中还未被读取的消息，若消息均已读出，则会读到类型的零值。从一个已关闭的 channel 中读取消息永远不会阻塞，并且会返回一个为 false 的 ok-idiom，可以用它来判断 channel 是否关闭。
+* 关闭 channel 会产生一个广播机制，所有向 channel 读取消息的 goroutine 都会收到消息。
+
+### for range
+range c产生的迭代值为Channel中发送的值，它会一直迭代直到channel被关闭。
+```go
+package main
+
+import (
+	"fmt"
+)
+
+func main() {
+	ch := make(chan int)
+
+	go func() {
+		for i := 0; i < 5; i++ {
+			ch <- i
+		}
+		close(ch)
+	}()
+
+	for num := range ch {
+		fmt.Println("num = ", num)
+	}
+}
+```
+
+### select
+同时有多个channel可以接收数据时，选择一个case处理。
+* 如果没有case需要处理，则会选择default去处理，如果default case存在的情况下。
+* 如果没有default case，则select语句会阻塞，直到某个case需要处理。
+* nil channel上的操作会一直被阻塞，如果没有default case, 只有nil channel的select会一直被阻塞。
+* select语句和switch语句一样，它不是循环，它只会选择一个case来处理，如果想一直处理channel，你可以在外面加一个无限的for循环。
+
+### timeout
+超时处理
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main() {
+	ch := make(chan string, 1)
+
+	go func() {
+		time.Sleep(time.Second * 2)
+		ch <- "result 2"
+	}()
+
+	select {
+	case res := <-ch:
+		fmt.Println(res)
+	case <-time.After(time.Second * 1):
+		fmt.Println("timeout 1")
+	}
+}
+```
 
 ## sync
 ### sync.Atomic
@@ -360,94 +446,6 @@ func main() {
 		if a[i] != 0 {
 			count++
 		}
-	}
-}
-```
-
-
-## 并发模型
-
-IO多路复用、多进程、多线程
-
-* 进程是资源分配的最小单位，线程是CPU调度的最小单位
-* select, poll, epoll 都是I/O多路复用的具体的实现
-* 协程是一种用户态的轻量级线程
-
-> golang程序可以轻松支持10w级别的Goruntine，而线程数量达到1k时，内存占用就已经达到2G。
-
-epoll 可以说是I/O 多路复用最新的一个实现，epoll 修复了poll 和select绝大部分问题, 比如：
-
-* epoll 现在是线程安全的。
-* epoll 现在不仅告诉你sock组里面数据，还会告诉你具体哪个sock有数据，你不用自己去找了。
-
-## Go Channel 
-无缓冲的通道（unbuffered channel）是指在接收前没有能力保存任何值的通道。
-有缓冲的通道（buffered channel）是一种在被接收前能存储一个或者多个数据值的通道。
-无缓冲的通道保证进行发送和接收的goroutine会在同一时间进行数据交换。
-
-有关 channel 的关闭，你需要注意以下事项:
-
-* 关闭一个未初始化(nil) 的 channel 会产生 panic。
-* 重复关闭同一个 channel 会产生 panic。
-* 向一个已关闭的 channel 中发送消息会产生 panic。
-* 从已关闭的 channel 读取消息不会产生 panic，且能读出 channel 中还未被读取的消息，若消息均已读出，则会读到类型的零值。从一个已关闭的 channel 中读取消息永远不会阻塞，并且会返回一个为 false 的 ok-idiom，可以用它来判断 channel 是否关闭。
-* 关闭 channel 会产生一个广播机制，所有向 channel 读取消息的 goroutine 都会收到消息。
-
-### for range
-range c产生的迭代值为Channel中发送的值，它会一直迭代直到channel被关闭。
-```go
-package main
-
-import (
-	"fmt"
-)
-
-func main() {
-	ch := make(chan int)
-
-	go func() {
-		for i := 0; i < 5; i++ {
-			ch <- i
-		}
-		close(ch)
-	}()
-
-	for num := range ch {
-		fmt.Println("num = ", num)
-	}
-}
-```
-
-### select
-同时有多个channel可以接收数据时，选择一个case处理。
-* 如果没有case需要处理，则会选择default去处理，如果default case存在的情况下。
-* 如果没有default case，则select语句会阻塞，直到某个case需要处理。
-* nil channel上的操作会一直被阻塞，如果没有default case, 只有nil channel的select会一直被阻塞。
-* select语句和switch语句一样，它不是循环，它只会选择一个case来处理，如果想一直处理channel，你可以在外面加一个无限的for循环。
-
-### timeout
-超时处理
-```go
-package main
-
-import (
-	"fmt"
-	"time"
-)
-
-func main() {
-	ch := make(chan string, 1)
-
-	go func() {
-		time.Sleep(time.Second * 2)
-		ch <- "result 2"
-	}()
-
-	select {
-	case res := <-ch:
-		fmt.Println(res)
-	case <-time.After(time.Second * 1):
-		fmt.Println("timeout 1")
 	}
 }
 ```
