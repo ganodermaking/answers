@@ -12,6 +12,12 @@ golang知识点
 
 ## sync
 ### sync.Atomic
+sync/atomic 可以在并发场景下对变量进行非侵入式的操作。可以保证并发安全，虽然使用 sync.Mutex 可以实现，但是使用sync/atomic不仅是轻量级的，而且代码也更加简洁。
+
+与Mutex相比，它的优势主要有以下几点：
+* 更高效，因为atomic是直接作用与内存的锁，所以更底层，更高效。在Demo中的用时也可以看出。
+* 更简洁，atomic避免了加锁解锁的过程，一行代码就可以完成这个操作，使代码更简洁，更具有可读性。
+
 ```go
 package main
 
@@ -19,6 +25,7 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 func main() {
@@ -26,11 +33,11 @@ func main() {
 	test2()
 }
 
-// count++  并发不安全
+// count++ 并发不安全
 func test1() {
-	count := 0
-
 	var wg sync.WaitGroup
+	count := 0
+	t := time.Now()
 	for i := 0; i < 100000; i++ {
 		wg.Add(1)
 		go func(i int) {
@@ -40,14 +47,14 @@ func test1() {
 	}
 	wg.Wait()
 
-	fmt.Printf("count的值为：%d \n", count)
+	fmt.Printf("test1 花费时间：%d, count的值为：%d \n", time.Now().Sub(t), count)
 }
 
-// atomic.AddInt64(&count,1)  原子操作
+// atomic.AddInt64(&count,1)  // 原子操作
 func test2() {
-	count := int64(0)
-
 	var wg sync.WaitGroup
+	count := int64(0)
+	t := time.Now()
 	for i := 0; i < 100000; i++ {
 		wg.Add(1)
 		go func(i int) {
@@ -57,7 +64,7 @@ func test2() {
 	}
 	wg.Wait()
 
-	fmt.Printf("count的值为：%d \n", count)
+	fmt.Printf("test2 花费时间：%d, count的值为：%d \n", time.Now().Sub(t), count)
 }
 ```
 
@@ -93,6 +100,36 @@ func main() {
 }
 ```
 > 仅输出一次Only once
+
+源码解析：
+```go
+package sync
+
+import (
+	"sync"
+	"sync/atomic"
+)
+
+// Once is an object that will perform exactly one action.
+type Once struct {
+	m    sync.Mutex
+	done uint32
+}
+
+func (o *Once) Do(f func()) {
+	if atomic.LoadUint32(&o.done) == 1 {
+		return
+	}
+
+	// Slow-path.
+	o.m.Lock()
+	defer o.m.Unlock()
+	if o.done == 0 {
+		defer atomic.StoreUint32(&o.done, 1)
+		f()
+	}
+}
+```
 
 ### sync.Pool
 Pool 是可伸缩、并发安全的临时对象池，用来存放已经分配但暂时不用的临时对象，通过对象重用机制，缓解 GC 压力，提高程序性能。
