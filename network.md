@@ -94,3 +94,8 @@ HTTP不可以使用UDP，HTTP需要基于可靠的传输协议，而UDP不可靠
 * 3xx状态码：重定向
 * 4xx状态码：客户端错误
 * 5xx状态码：服务端错误
+
+* 499状态码：client has closed connection，客户端关闭了连接。
+* 502状态码：已经与后端建立了连接，但超时。
+* 503状态码：Service Unavailable，服务不可用。
+* 504状态码：与后端连接未建立。
